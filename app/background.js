@@ -17,7 +17,7 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 function sendToLocalServer(data) {
-  fetch("http://localhost:3000/chat", {
+  fetch("http://localhost:3000/api/messages", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
