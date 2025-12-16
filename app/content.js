@@ -14,6 +14,31 @@ document.addEventListener("submit", (e) => {
     }
 });
 
+// Fonction pour extraire tout le texte d'un conteneur de message
+const getFullMessageText = (messageNode) => {
+    const textContainer = messageNode.querySelector("[data-testid='text-message-part']");
+    if (!textContainer) return null;
+    return textContainer.textContent.trim();
+};
+
+// Dictionnaire pour suivre les messages en cours de modification
+const pendingMessages = {};
+
+// Fonction pour envoyer les mises à jour du message toutes les 500ms
+const sendMessageUpdate = (messageId, role, text) => {
+    if (pendingMessages[messageId]) {
+        clearTimeout(pendingMessages[messageId]);
+    }
+    pendingMessages[messageId] = setTimeout(() => {
+        console.log(`📤 Mise à jour du message (${role}):`, text);
+        browser.runtime.sendMessage({
+            type: role === "user" ? "user_message" : "bot_response",
+            data: text,
+            isPartial: true, // Indique que c'est une mise à jour partielle
+        });
+    }, 500); // Envoie toutes les 500ms
+};
+
 const observeChatResponses = () => {
     const chatContainer = document.querySelector("[data-testid='conversation-layout']");
     if (!chatContainer) {
@@ -25,34 +50,25 @@ const observeChatResponses = () => {
     const observer = new MutationObserver((mutations) => {
         mutations.forEach((mutation) => {
             mutation.addedNodes.forEach((node) => {
-                // On ne traite que les éléments DOM
                 if (node.nodeType === Node.ELEMENT_NODE) {
-                    // 1. Vérifier si le nœud est un message (a l'attribut data-message-author-role)
+                    // Cas 1: Le nœud est un message
                     if (node.hasAttribute("data-message-author-role")) {
-                        const messageTextElement = node.querySelector("[data-testid='text-message-part'] p");
-                        if (messageTextElement) {
-                            const text = messageTextElement.textContent.trim();
-                            const role = node.getAttribute("data-message-author-role");
-                            console.log(`✅ Message intercepté (${role}):`, text);
-                            browser.runtime.sendMessage({
-                                type: role === "user" ? "user_message" : "bot_response",
-                                data: text
-                            });
+                        const messageId = node.getAttribute("data-message-id");
+                        const role = node.getAttribute("data-message-author-role");
+                        const text = getFullMessageText(node);
+                        if (text && messageId) {
+                            sendMessageUpdate(messageId, role, text);
                         }
                     }
-                    // 2. Parcourir les enfants pour trouver des messages imbriqués
+                    // Cas 2: Parcourir les enfants pour trouver des messages
                     else {
                         const messages = node.querySelectorAll("[data-message-author-role]");
                         messages.forEach((msgNode) => {
-                            const messageTextElement = msgNode.querySelector("[data-testid='text-message-part'] p");
-                            if (messageTextElement) {
-                                const text = messageTextElement.textContent.trim();
-                                const role = msgNode.getAttribute("data-message-author-role");
-                                console.log(`✅ Message imbriqué intercepté (${role}):`, text);
-                                browser.runtime.sendMessage({
-                                    type: role === "user" ? "user_message" : "bot_response",
-                                    data: text
-                                });
+                            const messageId = msgNode.getAttribute("data-message-id");
+                            const role = msgNode.getAttribute("data-message-author-role");
+                            const text = getFullMessageText(msgNode);
+                            if (text && messageId) {
+                                sendMessageUpdate(messageId, role, text);
                             }
                         });
                     }
@@ -61,7 +77,11 @@ const observeChatResponses = () => {
         });
     });
 
-    observer.observe(chatContainer, { childList: true, subtree: true });
+    observer.observe(chatContainer, {
+        childList: true,
+        subtree: true,
+        characterData: true, // Pour capturer les modifications de texte
+    });
     console.log("Observation démarrée sur le conteneur :", chatContainer);
 };
 
