@@ -14,50 +14,6 @@ document.addEventListener("submit", (e) => {
     }
 });
 
-
-const observer = new MutationObserver((mutations) => {
-    mutations.forEach((mutation) => {
-        mutation.addedNodes.forEach((node) => {
-            if (node.nodeType === Node.ELEMENT_NODE) {
-                if (node.hasAttribute("data-message-author-role")) {
-                    const messageTextElement = node.querySelector("[data-testid='text-message-part'] p");
-                    if (messageTextElement) {
-                        const text = messageTextElement.textContent.trim();
-                        // Vérifier que le texte n'est pas vide ou trop court
-                        if (text && text.length > 1) {
-                            const role = node.getAttribute("data-message-author-role");
-                            console.log(`✅ Message intercepté (${role}):`, text);
-                            browser.runtime.sendMessage({
-                                type: role === "user" ? "user_message" : "bot_response",
-                                data: text
-                            });
-                        }
-                    }
-                }
-                // Parcourir les enfants
-                else {
-                    const messages = node.querySelectorAll("[data-message-author-role]");
-                    messages.forEach((msgNode) => {
-                        const messageTextElement = msgNode.querySelector("[data-testid='text-message-part'] p");
-                        if (messageTextElement) {
-                            const text = messageTextElement.textContent.trim();
-                            if (text && text.length > 1) {
-                                const role = msgNode.getAttribute("data-message-author-role");
-                                console.log(`✅ Message imbriqué intercepté (${role}):`, text);
-                                browser.runtime.sendMessage({
-                                    type: role === "user" ? "user_message" : "bot_response",
-                                    data: text
-                                });
-                            }
-                        }
-                    });
-                }
-            }
-        });
-    });
-});
-
-
 const observeChatResponses = () => {
     const chatContainer = document.querySelector("[data-testid='conversation-layout']");
     if (!chatContainer) {
