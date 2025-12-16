@@ -16,18 +16,32 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 });
 
-// Fonction pour communiquer avec le serveur local (ex: Flask/FastAPI)
 function sendToLocalServer(data) {
-  // Utilisez browser.runtime.sendNativeMessage si vous avez configuré nativeMessaging
-  // ou une requête HTTP vers localhost si vous préférez REST
-  fetch("http://localhost:5000/chat", {
+  fetch("http://localhost:3000/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   })
-    .then((response) => response.json())
-    .then((data) => console.log("Réponse du serveur local :", data))
-    .catch((error) => console.error("Erreur :", error));
+  .then((response) => {
+    if (!response.ok) {
+      throw new Error(`Erreur HTTP: ${response.status}`);
+    }
+    return response.json();
+  })
+  .then((data) => console.log("Réponse du serveur local :", data))
+  .catch((error) => {
+    console.error("Erreur lors de l'envoi au serveur :", error);
+    // Optionnel : Stocker les messages localement en cas d'échec
+    storeMessageLocally(data);
+  });
+}
+
+// Fonction pour stocker les messages localement en cas d'échec réseau
+function storeMessageLocally(data) {
+  const storedMessages = JSON.parse(localStorage.getItem("pendingMessages") || "[]");
+  storedMessages.push(data);
+  localStorage.setItem("pendingMessages", JSON.stringify(storedMessages));
+  console.log("Message stocké localement (en attente d'envoi) :", data);
 }
 
 // Écoute le clic sur l'icône de l'extension (optionnel)
